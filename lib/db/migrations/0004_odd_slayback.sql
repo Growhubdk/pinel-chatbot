@@ -1,1 +1,1 @@
-ALTER TABLE "Document" ADD COLUMN "text" varchar DEFAULT 'text' NOT NULL;
+ALTER TABLE document ADD COLUMN text varchar DEFAULT 'text' NOT NULL;
