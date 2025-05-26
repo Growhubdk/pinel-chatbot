@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     return new ChatSDKError('not_found:document').toResponse();
   }
 
-  if (document.userId !== session.user.id) {
+  if (document.userid !== session.user.id) {
     return new ChatSDKError('forbidden:document').toResponse();
   }
 
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   if (documents.length > 0) {
     const [document] = documents;
 
-    if (document.userId !== session.user.id) {
+    if (document.userid !== session.user.id) {
       return new ChatSDKError('forbidden:document').toResponse();
     }
   }
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     content,
     title,
     kind,
-    userId: session.user.id,
+    userid: session.user.id,
   });
 
   return Response.json(document, { status: 200 });
@@ -113,7 +113,7 @@ export async function DELETE(request: Request) {
 
   const [document] = documents;
 
-  if (document.userId !== session.user.id) {
+  if (document.userid !== session.user.id) {
     return new ChatSDKError('forbidden:document').toResponse();
   }
 
