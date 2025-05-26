@@ -4,9 +4,9 @@ import { ChatSDKError } from '@/lib/errors';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const documentId = searchParams.get('documentId');
+  const documentid = searchParams.get('documentId'); // behold navnet her, det er fra URL
 
-  if (!documentId) {
+  if (!documentid) {
     return new ChatSDKError(
       'bad_request:api',
       'Parameter documentId is required.',
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   }
 
   const suggestions = await getSuggestionsByDocumentId({
-    documentId,
+    documentid, // brug små bogstaver som forventet af typen
   });
 
   const [suggestion] = suggestions;
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     return Response.json([], { status: 200 });
   }
 
-  if (suggestion.userId !== session.user.id) {
+  if (suggestion.userid !== session.user.id) { // brug små bogstaver her også
     return new ChatSDKError('forbidden:api').toResponse();
   }
 
