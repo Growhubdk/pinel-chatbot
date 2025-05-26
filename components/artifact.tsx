@@ -426,7 +426,7 @@ function PureArtifact({
                   ) : document ? (
                     <div className="text-sm text-muted-foreground">
                       {`Updated ${formatDistance(
-                        new Date(document.createdAt),
+                        new Date(document.createdat),
                         new Date(),
                         {
                           addSuffix: true,
