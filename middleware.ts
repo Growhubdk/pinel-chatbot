@@ -18,10 +18,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
-  });
+  req: request,
+  secret: process.env.NEXTAUTH_SECRET,  // <-- Skiftet her
+  secureCookie: !isDevelopmentEnvironment,
+});
+
 
   if (!token) {
     const redirectUrl = encodeURIComponent(request.url);

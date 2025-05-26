@@ -1,6 +1,6 @@
 import { Toaster } from 'sonner';
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter, Roboto_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 
 import './globals.css';
@@ -16,20 +16,21 @@ export const viewport = {
   maximumScale: 1, // Disable auto-zoom on mobile Safari
 };
 
-const geist = Geist({
+const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-geist',
+  variable: '--font-inter',
 });
 
-const geistMono = Geist_Mono({
+const robotoMono = Roboto_Mono({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-geist-mono',
+  variable: '--font-roboto-mono',
 });
 
 const LIGHT_THEME_COLOR = 'hsl(0 0% 100%)';
 const DARK_THEME_COLOR = 'hsl(240deg 10% 3.92%)';
+
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;
@@ -50,24 +51,18 @@ const THEME_COLOR_SCRIPT = `\
 
 export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="en"
-      // `next-themes` injects an extra classname to the body element to avoid
-      // visual flicker before hydration. Hence the `suppressHydrationWarning`
-      // prop is necessary to avoid the React hydration mismatch warning.
-      // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
       suppressHydrationWarning
-      className={`${geist.variable} ${geistMono.variable}`}
+      className={`${inter.variable} ${robotoMono.variable}`}
     >
       <head>
         <script
-          dangerouslySetInnerHTML={{
-            __html: THEME_COLOR_SCRIPT,
-          }}
+          dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }}
         />
       </head>
       <body className="antialiased">

@@ -16,15 +16,17 @@ config({
   path: '.env.local',
 });
 
-if (!process.env.POSTGRES_URL) {
-  throw new Error('POSTGRES_URL environment variable is not set');
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set');
 }
 
-const client = postgres(process.env.POSTGRES_URL);
+const client = postgres(process.env.DATABASE_URL, {
+  ssl: { rejectUnauthorized: false },
+});
 const db = drizzle(client);
 
-const BATCH_SIZE = 100; // Process 100 chats at a time
-const INSERT_BATCH_SIZE = 1000; // Insert 1000 messages at a time
+const BATCH_SIZE = 100;
+const INSERT_BATCH_SIZE = 1000;
 
 type NewMessageInsert = {
   id: string;

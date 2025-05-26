@@ -19,33 +19,33 @@ export async function GET(request: Request) {
     return new ChatSDKError('unauthorized:vote').toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById(chatId); // 🔧 Rettet: vi sender string direkte
 
   if (!chat) {
     return new ChatSDKError('not_found:chat').toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  if (chat.userid !== session.user.id) {
     return new ChatSDKError('forbidden:vote').toResponse();
   }
 
-  const votes = await getVotesByChatId({ id: chatId });
+  const votes = await getVotesByChatId({ chatid: chatId }); // 🔧 bruger 'chatid' som i schema
 
   return Response.json(votes, { status: 200 });
 }
 
 export async function PATCH(request: Request) {
   const {
-    chatId,
-    messageId,
+    chatid,
+    messageid,
     type,
-  }: { chatId: string; messageId: string; type: 'up' | 'down' } =
+  }: { chatid: string; messageid: string; type: 'up' | 'down' } =
     await request.json();
 
-  if (!chatId || !messageId || !type) {
+  if (!chatid || !messageid || !type) {
     return new ChatSDKError(
       'bad_request:api',
-      'Parameters chatId, messageId, and type are required.',
+      'Parameters chatid, messageid, and type are required.',
     ).toResponse();
   }
 
@@ -55,20 +55,20 @@ export async function PATCH(request: Request) {
     return new ChatSDKError('unauthorized:vote').toResponse();
   }
 
-  const chat = await getChatById({ id: chatId });
+  const chat = await getChatById(chatid);
 
   if (!chat) {
     return new ChatSDKError('not_found:vote').toResponse();
   }
 
-  if (chat.userId !== session.user.id) {
+  if (chat.userid !== session.user.id) {
     return new ChatSDKError('forbidden:vote').toResponse();
   }
 
   await voteMessage({
-    chatId,
-    messageId,
-    type: type,
+    chatid,
+    messageid,
+    type,
   });
 
   return new Response('Message voted', { status: 200 });

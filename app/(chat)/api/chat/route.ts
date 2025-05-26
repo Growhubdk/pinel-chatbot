@@ -27,12 +27,10 @@ import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
-import { geolocation } from '@vercel/functions';
 import {
   createResumableStreamContext,
   type ResumableStreamContext,
 } from 'resumable-stream';
-import { after } from 'next/server';
 import type { Chat } from '@/lib/db/schema';
 import { differenceInSeconds } from 'date-fns';
 import { ChatSDKError } from '@/lib/errors';
@@ -45,7 +43,7 @@ function getStreamContext() {
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
+        waitUntil: () => Promise.resolve(),
       });
     } catch (error: any) {
       if (error.message.includes('REDIS_URL')) {
@@ -72,8 +70,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const { id, message, selectedVisibilityType } = requestBody;
+    const selectedChatModel = 'gpt-4';
+
 
     const session = await auth();
 
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
       return new ChatSDKError('rate_limit:chat').toResponse();
     }
 
-    const chat = await getChatById({ id });
+    const chat = await getChatById(id);
 
     if (!chat) {
       const title = await generateTitleFromUserMessage({
@@ -101,65 +100,69 @@ export async function POST(request: Request) {
 
       await saveChat({
         id,
-        userId: session.user.id,
+        userid: session.user.id,
         title,
         visibility: selectedVisibilityType,
       });
     } else {
-      if (chat.userId !== session.user.id) {
+      if (chat.userid !== session.user.id) {
         return new ChatSDKError('forbidden:chat').toResponse();
       }
     }
 
-    const previousMessages = await getMessagesByChatId({ id });
+    const previousMessages = await getMessagesByChatId(id);
 
     const messages = appendClientMessage({
-      // @ts-expect-error: todo add type conversion from DBMessage[] to UIMessage[]
-      messages: previousMessages,
-      message,
-    });
+  messages: previousMessages.map((m) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant' | 'system' | 'data',
+    content: JSON.stringify(m.parts),
+    createdAt: m.createdat,
+  })),
+  message,
+  });
 
-    const { longitude, latitude, city, country } = geolocation(request);
+
+
+
 
     const requestHints: RequestHints = {
-      longitude,
-      latitude,
-      city,
-      country,
+      latitude: '0',
+      longitude: '0',
+      city: 'Unknown',
+      country: 'Unknown',
     };
 
-    await saveMessages({
-      messages: [
-        {
-          chatId: id,
-          id: message.id,
-          role: 'user',
-          parts: message.parts,
-          attachments: message.experimental_attachments ?? [],
-          createdAt: new Date(),
-        },
-      ],
-    });
+
+
+    await saveMessages([
+      {
+        chatid: id,
+        id: message.id,
+        role: 'user',
+        parts: message.parts,
+        attachments: message.experimental_attachments ?? [],
+        createdat: new Date(),
+      },
+    ]);
 
     const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
+    await createStreamId({ streamid: streamId, chatid: id });
 
     const stream = createDataStream({
       execute: (dataStream) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: systemPrompt({ selectedChatModel: 'gpt-4', requestHints }),
           messages,
           maxSteps: 5,
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
+          experimental_activeTools: [
+            'getWeather',
+            'createDocument',
+            'updateDocument',
+            'requestSuggestions',
+          ],
+
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
           tools: {
@@ -189,19 +192,17 @@ export async function POST(request: Request) {
                   responseMessages: response.messages,
                 });
 
-                await saveMessages({
-                  messages: [
-                    {
-                      id: assistantId,
-                      chatId: id,
-                      role: assistantMessage.role,
-                      parts: assistantMessage.parts,
-                      attachments:
-                        assistantMessage.experimental_attachments ?? [],
-                      createdAt: new Date(),
-                    },
-                  ],
-                });
+                await saveMessages([
+                  {
+                    id: assistantId,
+                    chatid: id,
+                    role: assistantMessage.role,
+                    parts: assistantMessage.parts,
+                    attachments:
+                      assistantMessage.experimental_attachments ?? [],
+                    createdat: new Date(),
+                  },
+                ]);
               } catch (_) {
                 console.error('Failed to save chat');
               }
@@ -214,7 +215,6 @@ export async function POST(request: Request) {
         });
 
         result.consumeStream();
-
         result.mergeIntoDataStream(dataStream, {
           sendReasoning: true,
         });
@@ -237,6 +237,8 @@ export async function POST(request: Request) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
+    console.error(error);
+    return new Response('Internal Server Error', { status: 500 });
   }
 }
 
@@ -249,9 +251,9 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const chatId = searchParams.get('chatId');
+  const chatid = searchParams.get('chatId');
 
-  if (!chatId) {
+  if (!chatid) {
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
@@ -264,7 +266,7 @@ export async function GET(request: Request) {
   let chat: Chat;
 
   try {
-    chat = await getChatById({ id: chatId });
+    chat = await getChatById(chatid);
   } catch {
     return new ChatSDKError('not_found:chat').toResponse();
   }
@@ -273,11 +275,11 @@ export async function GET(request: Request) {
     return new ChatSDKError('not_found:chat').toResponse();
   }
 
-  if (chat.visibility === 'private' && chat.userId !== session.user.id) {
+  if (chat.visibility === 'private' && chat.userid !== session.user.id) {
     return new ChatSDKError('forbidden:chat').toResponse();
   }
 
-  const streamIds = await getStreamIdsByChatId({ chatId });
+  const streamIds = await getStreamIdsByChatId({ chatid });
 
   if (!streamIds.length) {
     return new ChatSDKError('not_found:stream').toResponse();
@@ -298,23 +300,15 @@ export async function GET(request: Request) {
     () => emptyDataStream,
   );
 
-  /*
-   * For when the generation is streaming during SSR
-   * but the resumable stream has concluded at this point.
-   */
   if (!stream) {
-    const messages = await getMessagesByChatId({ id: chatId });
+    const messages = await getMessagesByChatId(chatid);
     const mostRecentMessage = messages.at(-1);
 
-    if (!mostRecentMessage) {
+    if (!mostRecentMessage || mostRecentMessage.role !== 'assistant') {
       return new Response(emptyDataStream, { status: 200 });
     }
 
-    if (mostRecentMessage.role !== 'assistant') {
-      return new Response(emptyDataStream, { status: 200 });
-    }
-
-    const messageCreatedAt = new Date(mostRecentMessage.createdAt);
+    const messageCreatedAt = new Date(mostRecentMessage.createdat);
 
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
       return new Response(emptyDataStream, { status: 200 });
@@ -349,9 +343,9 @@ export async function DELETE(request: Request) {
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
-  const chat = await getChatById({ id });
+  const chat = await getChatById(id);
 
-  if (chat.userId !== session.user.id) {
+  if (chat.userid !== session.user.id) {
     return new ChatSDKError('forbidden:chat').toResponse();
   }
 
