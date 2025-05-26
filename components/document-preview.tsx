@@ -92,8 +92,8 @@ export function DocumentPreview({
           kind: artifact.kind,
           content: artifact.content,
           id: artifact.documentId,
-          createdAt: new Date(),
-          userId: 'noop',
+          createdat: new Date(),
+          userid: 'noop',
         }
       : null;
 
